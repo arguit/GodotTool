@@ -19,7 +19,7 @@ Options:
   -?, -h, --help  Show help and usage information
 
 Commands:
-  nodes <filepath>  Generates partial class with all nodes for the given *.tscn file with existing associated script. []
+  nodes <filepaths>  Generates partial class with all nodes for the given *.tscn file with existing associated script. []
 ```
 
 ## Generate Nodes
@@ -35,13 +35,13 @@ Generates file with the following attributes:
   - Adds all necessary usings gathered from all dependant scripts
 - `Namespace` that correspondents with the namespace foudn in the associated script
 - `Partial class` for the associated script (class) with:
-  - `Properies` for every found nodes in the source *.tscn file
+  - `Properies` for every found nodes in the source \*.tscn file
   - Public `Initialize()` method that should be call from `_Ready()` method in the main class
     - Contains `Initializations` for all nodes found
 
 Command: `nodes`
 
-Arguments: `list of strings` that are file paths of *.tscn files or `nothing` to go through all*.tscn files in project
+Arguments: `list of strings` that are file paths of \*.tscn files or `nothing` to go through all \*.tscn files in project
 
 Examples:
 
