@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GodotTool.Services;
 
-public class NodesService
+public class NodesService : INodesService
 {
     private readonly ILogger<NodesService> _logger;
 

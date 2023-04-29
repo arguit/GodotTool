@@ -11,7 +11,7 @@ var parser = BuildCommandLine()
     .UseHost(_ => Host.CreateDefaultBuilder(args), builder => builder
         .ConfigureServices((hostContext, services) =>
         {
-            services.AddSingleton<NodesService>();
+            services.AddSingleton<INodesService, NodesService>();
         })
         .UseCommandHandler<NodesCommand, NodesCommand.Handler>())
     .UseDefaults()

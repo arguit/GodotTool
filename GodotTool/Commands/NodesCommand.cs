@@ -7,16 +7,16 @@ namespace GodotTool.Commands;
 public class NodesCommand : Command
 {
     public NodesCommand()
-        : base("nodes", "Generates partial class with all nodes for the given *.tscn file with existing associated script.")
+        : base("nodes", "Generates partial class with all nodes for the given *.tscn files with existing associated scripts.")
     {
-        AddArgument(new Argument<IEnumerable<string>>("filepath", () => null!, "Filepath to a *.tscn file."));
+        AddArgument(new Argument<IEnumerable<string>>("filepaths", () => null!, "Filepaths to a *.tscn file."));
     }
 
     public new class Handler : ICommandHandler
     {
         private readonly NodesService _nodesService;
 
-        public IEnumerable<string>? FilePath { get; set; }
+        public IEnumerable<string>? FilePaths { get; set; }
 
         public Handler(NodesService nodesService)
         {
@@ -25,7 +25,7 @@ public class NodesCommand : Command
 
         public int Invoke(InvocationContext context)
         {
-            _nodesService.Run(FilePath);
+            _nodesService.Run(FilePaths);
             return 0;
         }
 
