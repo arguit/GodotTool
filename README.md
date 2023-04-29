@@ -2,6 +2,10 @@
 
 Tool for Godot game developers.
 
+- [GodotTool](#godottool)
+  - [Usage](#usage)
+  - [Generate Nodes](#generate-nodes)
+
 ## Usage
 
 ```text
@@ -20,9 +24,24 @@ Commands:
 
 ## Generate Nodes
 
+Generates strongly typed properties for every node in the given *.tscn file.
+
+Generates file with the following attributes:
+
+- Name `[AssociatedScriptName].Nodes.cs`
+  - Ex. for `Main.tscn` with `Main.cs` the generated file will be named `Main.Nodes.cs`
+- `Usings`
+  - Adds `Godot` using
+  - Adds all necessary usings gathered from all dependant scripts
+- `Namespace` that correspondents with the namespace foudn in the associated script
+- `Partical class` for the associated script (class) with:
+  - `Properies` for every found nodes in the source *.tscn file
+  - Public `Initialize()` method that should be call from `_Ready()` method in the main class
+    - Contains `Initializations` for all nodes found
+
 Command: `nodes`
 
-Arguments: `list of strings` that are file paths of *.tscn files or `nothing` to go through all *.tscn files in project
+Arguments: `list of strings` that are file paths of *.tscn files or `nothing` to go through all*.tscn files in project
 
 Examples:
 
@@ -36,4 +55,41 @@ godottool nodes .\Main.tscn
 
 ```text
 godottool nodes .\Main.tscn .\Components\Component.tscn
+```
+Generated partical class format:
+
+```csharp
+using Godot;
+
+//
+// GENERATES: dependency usings
+//
+
+namespace MyProject;
+
+public partial class Main
+{
+    //
+    // GENERATES: node properties
+    // 
+    // Format:
+    //
+    // public [NodeType] [NodeName] { get; set; }
+    //
+
+    public Node MyNode { get; set;}
+
+    public void Initialize()
+    {
+        //
+        // GENERATES: node initializations
+        // 
+        // Format:
+        //
+        // [NodeName] = GetNode<[NodeType]>("[NodePath]");
+        //
+
+        MyNode = GetNode<Node>("./MyNode");
+    }
+}
 ```
