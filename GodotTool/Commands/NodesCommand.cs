@@ -14,11 +14,11 @@ public class NodesCommand : Command
 
     public new class Handler : ICommandHandler
     {
-        private readonly NodesService _nodesService;
+        private readonly INodesService _nodesService;
 
         public IEnumerable<string>? FilePaths { get; set; }
 
-        public Handler(NodesService nodesService)
+        public Handler(INodesService nodesService)
         {
             _nodesService = nodesService;
         }
