@@ -34,7 +34,7 @@ Generates file with the following attributes:
   - Adds `Godot` using
   - Adds all necessary usings gathered from all dependant scripts
 - `Namespace` that correspondents with the namespace foudn in the associated script
-- `Partical class` for the associated script (class) with:
+- `Partial class` for the associated script (class) with:
   - `Properies` for every found nodes in the source *.tscn file
   - Public `Initialize()` method that should be call from `_Ready()` method in the main class
     - Contains `Initializations` for all nodes found
@@ -56,7 +56,8 @@ godottool nodes .\Main.tscn
 ```text
 godottool nodes .\Main.tscn .\Components\Component.tscn
 ```
-Generated partical class format:
+
+Generated partial class format:
 
 ```csharp
 using Godot;
