@@ -43,7 +43,7 @@ Generates file with the following attributes:
 - `Usings`
   - Adds `Godot` using
   - Adds all necessary usings gathered from all dependant scripts
-- `Namespace` that correspondents with the namespace foudn in the associated script
+- `Namespace` that correspondents with the namespace found in the associated script
 - `Partial class` for the associated script (class) with:
   - `Properies` for every found nodes in the source \*.tscn file
   - Public `Initialize()` method that should be call from `_Ready()` method in the main class
