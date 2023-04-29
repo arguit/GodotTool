@@ -11,7 +11,7 @@ Tool for Godot game developers.
 ## Install
 
 ```powershell
-dotnet tool install --global GodotTool --version 1.0.0
+dotnet tool install --global GodotTool --version 1.0.1
 ```
 
 ## Usage
