@@ -3,8 +3,15 @@
 Tool for Godot game developers.
 
 - [GodotTool](#godottool)
+  - [Install](#install)
   - [Usage](#usage)
   - [Generate Nodes](#generate-nodes)
+
+## Install
+
+```powershell
+dotnet tool install --global GodotTool --version 1.0.0
+```
 
 ## Usage
 
