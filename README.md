@@ -5,7 +5,8 @@ Tool for Godot game developers.
 - [GodotTool](#godottool)
   - [Install](#install)
   - [Usage](#usage)
-  - [Generate Nodes](#generate-nodes)
+  - [Features](#features)
+    - [Generate Nodes](#generate-nodes)
 
 ## Install
 
@@ -29,7 +30,9 @@ Commands:
   nodes <filepaths>  Generates partial class with all nodes for the given *.tscn file with existing associated script. []
 ```
 
-## Generate Nodes
+## Features
+
+### Generate Nodes
 
 Generates strongly typed properties for every node in the given *.tscn file.
 
