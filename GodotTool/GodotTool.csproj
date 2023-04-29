@@ -10,6 +10,14 @@
         <PackageOutputPath>./nupkg</PackageOutputPath>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <PackageId>GodotTool</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>arguit</Authors>
+        <RepositoryUrl>https://github.com/arguit/GodotTool</RepositoryUrl>
+        <Description>Tool for Godot game developers.</Description>
+    </PropertyGroup>
+    
     <ItemGroup>
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0-preview.3.23174.8" />
