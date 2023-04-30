@@ -226,7 +226,7 @@ public class NodesService : INodesService
 
     private NodesInfo GetNodesInfo(Tscn tscn)
     {
-        var nodeUsings = new List<string>();
+        var nodeUsings = new List<string> { "Godot" };
         var nodeProperties = new List<NodeProperty>();
         var nodeInitializations = new List<NodeInitialization>();
 
