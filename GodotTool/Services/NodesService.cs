@@ -1,5 +1,5 @@
-﻿using System.Text;
-using GodotTool.TscnFileFormat;
+﻿using GodotTool.TscnFileFormat;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Logging;
@@ -9,6 +9,15 @@ namespace GodotTool.Services;
 public class NodesService : INodesService
 {
     private readonly ILogger<NodesService> _logger;
+
+    private record ScriptInfo(string NamespaceName, string ClassName, bool IsPartial, bool IsFileScopedNamespace);
+
+    private record NodeProperty(string Type, string Name);
+
+    private record NodeInitialization(string Name, string Type, string Path);
+
+    private record NodesInfo(List<string> NodeUsings, List<NodeProperty> NodeProperties,
+        List<NodeInitialization> NodeInitializations);
 
     public NodesService(ILogger<NodesService> logger)
     {
@@ -42,16 +51,15 @@ public class NodesService : INodesService
 
         _logger.LogInformation($"{scriptPath} file found.");
 
-        var (namespaceName, className) = GetNamespaceAndClassName(scriptPath);
+        var scriptInfo = GetScriptInfo(scriptPath);
 
         _logger.LogInformation($"{scriptPath} file parsed successfully.");
 
-        var (nodeUsings, nodeProperties, nodeInitializations) = PrepareNodePropertiesAndInitializations(tscn);
+        var nodesInfo = GetNodesInfo(tscn);
 
         _logger.LogInformation($"Nodes properties and initializations prepared successfully.");
 
-        var partialClassFileContent =
-            GeneratePartialClassFileContent(namespaceName, className, nodeUsings, nodeProperties, nodeInitializations);
+        var partialClassFileContent = GeneratePartialClassFileContent(scriptInfo, nodesInfo);
 
         _logger.LogInformation($"Nodes partial class content generated successfully.");
 
@@ -62,6 +70,11 @@ public class NodesService : INodesService
         File.WriteAllText(partialClassFilePath, partialClassFileContent);
 
         _logger.LogInformation($"{partialClassFilePath} file created successfully.");
+
+        if (!scriptInfo.IsPartial)
+        {
+            ChangeToPartialClass(scriptPath);
+        }
     }
 
     private bool IsCurrentDirectoryGodotProjectRoot()
@@ -121,7 +134,47 @@ public class NodesService : INodesService
         return false;
     }
 
-    private (string namespaceName, string className) GetNamespaceAndClassName(string scriptPath)
+    private void ChangeToPartialClass(string scriptPath)
+    {
+        var scriptContent = File.ReadAllText(scriptPath);
+        
+        // Parse the existing source code into a syntax tree
+        var syntaxTree = CSharpSyntaxTree.ParseText(scriptContent);
+
+        // Get the root node of the syntax tree
+        var root = syntaxTree.GetRoot();
+
+        // Find the class declaration node in the syntax tree
+        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+
+        // Check if the class declaration exists
+        if (classDeclaration != null)
+        {
+            // Check if the class already has the 'partial' modifier
+            if (!classDeclaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword)))
+            {
+                // Add the 'partial' modifier to the class declaration
+                var partialModifier = SyntaxFactory.Token(SyntaxKind.PartialKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+                var newClassDeclaration = classDeclaration.AddModifiers(partialModifier);
+
+                // Create a new root node with the updated class declaration
+                var newRoot = root.ReplaceNode(classDeclaration, newClassDeclaration);
+
+                // Create a new syntax tree with the updated root node
+                var newSyntaxTree = syntaxTree.WithRootAndOptions(newRoot, syntaxTree.Options);
+
+                // Get the updated source code
+                var updatedScriptContent = newSyntaxTree.ToString();
+                
+                File.WriteAllText(scriptPath, updatedScriptContent);
+
+                _logger.LogInformation(
+                    $"Class {classDeclaration.Identifier.ValueText} in {scriptPath} file changed to partial successfully.");
+            }
+        }
+    }
+
+    private ScriptInfo GetScriptInfo(string scriptPath)
     {
         // get the associated script content
         var scriptContent = File.ReadAllText(scriptPath);
@@ -131,6 +184,8 @@ public class NodesService : INodesService
         var root = tree.GetCompilationUnitRoot();
         var namespaceName = string.Empty;
         var className = string.Empty;
+        var isPartial = true;
+        var isFileScopeNamespace = true;
 
         if (root.Members.Any(n => n.Kind() == SyntaxKind.NamespaceDeclaration))
         {
@@ -143,6 +198,10 @@ public class NodesService : INodesService
                 .FirstOrDefault(n => n.Kind() == SyntaxKind.ClassDeclaration)!;
 
             className = classDeclaration.Identifier.ValueText;
+
+            isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
+
+            isFileScopeNamespace = false;
         }
 
         if (root.Members.Any(n => n.Kind() == SyntaxKind.FileScopedNamespaceDeclaration))
@@ -152,21 +211,24 @@ public class NodesService : INodesService
 
             namespaceName = fileScopedNamespaceDeclarationSyntax.Name.ToFullString();
 
-            var classDeclaration = (ClassDeclarationSyntax)fileScopedNamespaceDeclarationSyntax.Members
-                .FirstOrDefault(n => n.Kind() == SyntaxKind.ClassDeclaration)!;
+            var classDeclaration = (ClassDeclarationSyntax)fileScopedNamespaceDeclarationSyntax
+                .Members.FirstOrDefault(n => n.Kind() == SyntaxKind.ClassDeclaration)!;
 
             className = classDeclaration.Identifier.ValueText;
+
+            isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
+
+            isFileScopeNamespace = true;
         }
 
-        return (namespaceName, className);
+        return new ScriptInfo(namespaceName, className, isPartial, isFileScopeNamespace);
     }
 
-    private (List<string> nodeUsings, List<string> nodeProperties, List<string> nodeInitializations)
-        PrepareNodePropertiesAndInitializations(Tscn tscn)
+    private NodesInfo GetNodesInfo(Tscn tscn)
     {
         var nodeUsings = new List<string>();
-        var nodeProperties = new List<string>();
-        var nodeInitializations = new List<string>();
+        var nodeProperties = new List<NodeProperty>();
+        var nodeInitializations = new List<NodeInitialization>();
 
         foreach (var node in tscn.Nodes)
         {
@@ -210,60 +272,133 @@ public class NodesService : INodesService
                     continue;
                 }
 
-                var (namespaceName, className) = GetNamespaceAndClassName(extResourceScriptPath);
+                var (namespaceName, className, _, _) = GetScriptInfo(extResourceScriptPath);
 
                 nodeType = className;
 
-                nodeUsings.Add($"using {namespaceName};");
+                nodeUsings.Add(namespaceName);
             }
 
-            nodeProperties.Add($"public {nodeType} {nodeName} {{ get; set; }}");
-            nodeInitializations.Add($"{nodeName} = GetNode<{nodeType}>(\"{nodePath}\");");
+            nodeProperties.Add(new NodeProperty(nodeType, nodeName));
+            nodeInitializations.Add(new NodeInitialization(nodeName, nodeType, nodePath));
         }
 
-        return (nodeUsings.Distinct().ToList(), nodeProperties, nodeInitializations);
+        return new NodesInfo(nodeUsings.Distinct().ToList(), nodeProperties, nodeInitializations);
     }
 
-    private static string GeneratePartialClassFileContent(
-        string namespaceName,
-        string className,
-        List<string> nodeUsings,
-        List<string> nodeProperties,
-        List<string> nodeInitializations)
+    private string GeneratePartialClassFileContent(ScriptInfo scriptInfo, NodesInfo nodesInfo)
     {
-        var builder = new StringBuilder();
+        var compilationUnit = SyntaxFactory.CompilationUnit();
 
-        builder.AppendLine("using Godot;");
+        FileScopedNamespaceDeclarationSyntax? fileScopedNamespaceDeclaration = null;
+        NamespaceDeclarationSyntax? namespaceDeclaration = null;
 
-        foreach (var nodeUsing in nodeUsings)
+        // Add usings
+        foreach (var nodeUsing in nodesInfo.NodeUsings)
         {
-            builder.AppendLine(nodeUsing);
+            compilationUnit = compilationUnit.AddUsings(
+                SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName(nodeUsing)));
         }
 
-        builder.AppendLine();
-        builder.AppendLine($"namespace {namespaceName};");
-        builder.AppendLine();
-        builder.AppendLine($"public partial class {className}");
-        builder.AppendLine("{");
-
-        foreach (var nodeProperty in nodeProperties)
+        // Add namespace
+        if (scriptInfo.IsFileScopedNamespace)
         {
-            builder.AppendLine($"    {nodeProperty}");
+            fileScopedNamespaceDeclaration =
+                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
+        }
+        else
+        {
+            namespaceDeclaration =
+                SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
         }
 
-        builder.AppendLine();
-        builder.AppendLine("    public void Initialize()");
-        builder.AppendLine("    {");
+        // Create class
+        var classDeclaration = SyntaxFactory.ClassDeclaration(scriptInfo.ClassName)
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PartialKeyword));
 
-        foreach (var nodeInitialization in nodeInitializations)
+        // Add properties to class
+        foreach (var nodeProperty in nodesInfo.NodeProperties)
         {
-            builder.AppendLine($"        {nodeInitialization}");
+            classDeclaration = classDeclaration.AddMembers(SyntaxFactory
+                .PropertyDeclaration(SyntaxFactory.ParseTypeName(nodeProperty.Type), nodeProperty.Name)
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+                .AddAccessorListAccessors(
+                    SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+                    SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))));
         }
 
-        builder.AppendLine("    }");
-        builder.AppendLine("}");
-        builder.AppendLine();
+        // Add initialization method
+        var methodDeclaration = SyntaxFactory.MethodDeclaration(
+                SyntaxFactory.PredefinedType(
+                    SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Initialize")
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
-        return builder.ToString();
+        var statemenSyntaxes = new List<StatementSyntax>();
+
+        foreach (var nodeInitialization in nodesInfo.NodeInitializations)
+        {
+            // Create the identifier for the left-hand side of the assignment
+            var identifier = SyntaxFactory.IdentifierName(nodeInitialization.Name);
+
+            // Create the right-hand side of the assignment
+            var invocationExpression = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.GenericName(SyntaxFactory.Identifier("GetNode"))
+                        .WithTypeArgumentList(
+                            SyntaxFactory.TypeArgumentList(
+                                SyntaxFactory.SingletonSeparatedList<TypeSyntax>(
+                                    SyntaxFactory.IdentifierName(nodeInitialization.Type)
+                                )
+                            )
+                        )
+                )
+                .WithArgumentList(
+                    SyntaxFactory.ArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.Argument(
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    SyntaxFactory.Literal(nodeInitialization.Path)
+                                )
+                            )
+                        )
+                    )
+                );
+
+            // Create the assignment expression
+            var assignmentExpression = SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                identifier,
+                invocationExpression
+            );
+
+            // Create the expression statement
+            var expressionStatement = SyntaxFactory.ExpressionStatement(assignmentExpression);
+
+            statemenSyntaxes.Add(expressionStatement);
+        }
+
+        methodDeclaration = methodDeclaration.WithBody(SyntaxFactory.Block(statemenSyntaxes));
+
+        // Add method into class
+        classDeclaration = classDeclaration.AddMembers(methodDeclaration);
+
+        // Add class into namespace and namespace into compilation unit
+        if (scriptInfo.IsFileScopedNamespace)
+        {
+            fileScopedNamespaceDeclaration = fileScopedNamespaceDeclaration!.AddMembers(classDeclaration);
+            compilationUnit = compilationUnit.AddMembers(fileScopedNamespaceDeclaration);
+        }
+        else
+        {
+            namespaceDeclaration = namespaceDeclaration!.AddMembers(classDeclaration);
+            compilationUnit = compilationUnit.AddMembers(namespaceDeclaration);
+        }
+
+        var code = compilationUnit.NormalizeWhitespace().ToString();
+
+        return code;
     }
 }
