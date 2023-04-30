@@ -104,3 +104,9 @@ public partial class Main
     }
 }
 ```
+
+Notes:
+
+- In the case of file scoped namespace it will generate *.Nodes.cs file also with file scoped namespace
+- In the case of block scoped namespace it will generate *.Nodes.cs file also with block scoped namespace
+- If the source class is not `partial` (in the case of Godot 3.5.x) the keyword will be added
