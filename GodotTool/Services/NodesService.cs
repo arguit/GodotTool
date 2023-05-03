@@ -10,7 +10,7 @@ public class NodesService : INodesService
 {
     private readonly ILogger<NodesService> _logger;
 
-    private record ScriptInfo(string NamespaceName, string ClassName, bool IsPartial, bool IsFileScopedNamespace);
+    private record ScriptInfo(string NamespaceName, string ClassName, bool IsPartial, bool hasNamespace, bool IsFileScopedNamespace);
 
     private record NodeProperty(string Type, string Name);
 
@@ -185,22 +185,15 @@ public class NodesService : INodesService
         var namespaceName = string.Empty;
         var className = string.Empty;
         var isPartial = true;
+        var hasNamespace = false;
         var isFileScopeNamespace = true;
 
         if (root.Members.Any(n => n.Kind() == SyntaxKind.NamespaceDeclaration))
         {
             var namespaceDeclarationSyntax = (NamespaceDeclarationSyntax)root.Members
                 .FirstOrDefault(n => n.Kind() == SyntaxKind.NamespaceDeclaration)!;
-
             namespaceName = namespaceDeclarationSyntax.Name.ToFullString();
-
-            var classDeclaration = (ClassDeclarationSyntax)namespaceDeclarationSyntax.Members
-                .FirstOrDefault(n => n.Kind() == SyntaxKind.ClassDeclaration)!;
-
-            className = classDeclaration.Identifier.ValueText;
-
-            isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
-
+            hasNamespace = true;
             isFileScopeNamespace = false;
         }
 
@@ -208,20 +201,16 @@ public class NodesService : INodesService
         {
             var fileScopedNamespaceDeclarationSyntax = (FileScopedNamespaceDeclarationSyntax)root.Members
                 .FirstOrDefault(n => n.Kind() == SyntaxKind.FileScopedNamespaceDeclaration)!;
-
             namespaceName = fileScopedNamespaceDeclarationSyntax.Name.ToFullString();
-
-            var classDeclaration = (ClassDeclarationSyntax)fileScopedNamespaceDeclarationSyntax
-                .Members.FirstOrDefault(n => n.Kind() == SyntaxKind.ClassDeclaration)!;
-
-            className = classDeclaration.Identifier.ValueText;
-
-            isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
-
+            hasNamespace = true;
             isFileScopeNamespace = true;
         }
+        
+        var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        className = classDeclaration!.Identifier.ValueText;
+        isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
 
-        return new ScriptInfo(namespaceName, className, isPartial, isFileScopeNamespace);
+        return new ScriptInfo(namespaceName, className, isPartial, hasNamespace, isFileScopeNamespace);
     }
 
     private NodesInfo GetNodesInfo(Tscn tscn)
@@ -272,7 +261,7 @@ public class NodesService : INodesService
                     continue;
                 }
 
-                var (namespaceName, className, _, _) = GetScriptInfo(extResourceScriptPath);
+                var (namespaceName, className, _, _, _) = GetScriptInfo(extResourceScriptPath);
 
                 nodeType = className;
 
@@ -301,15 +290,19 @@ public class NodesService : INodesService
         }
 
         // Add namespace
-        if (scriptInfo.IsFileScopedNamespace)
+        if (scriptInfo.hasNamespace)
         {
-            fileScopedNamespaceDeclaration =
-                SyntaxFactory.FileScopedNamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
-        }
-        else
-        {
-            namespaceDeclaration =
-                SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
+            if (scriptInfo.IsFileScopedNamespace)
+            {
+                fileScopedNamespaceDeclaration =
+                    SyntaxFactory.FileScopedNamespaceDeclaration(
+                        SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
+            }
+            else
+            {
+                namespaceDeclaration =
+                    SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
+            }
         }
 
         // Create class
@@ -386,15 +379,22 @@ public class NodesService : INodesService
         classDeclaration = classDeclaration.AddMembers(methodDeclaration);
 
         // Add class into namespace and namespace into compilation unit
-        if (scriptInfo.IsFileScopedNamespace)
+        if (scriptInfo.hasNamespace)
         {
-            fileScopedNamespaceDeclaration = fileScopedNamespaceDeclaration!.AddMembers(classDeclaration);
-            compilationUnit = compilationUnit.AddMembers(fileScopedNamespaceDeclaration);
+            if (scriptInfo.IsFileScopedNamespace)
+            {
+                fileScopedNamespaceDeclaration = fileScopedNamespaceDeclaration!.AddMembers(classDeclaration);
+                compilationUnit = compilationUnit.AddMembers(fileScopedNamespaceDeclaration);
+            }
+            else
+            {
+                namespaceDeclaration = namespaceDeclaration!.AddMembers(classDeclaration);
+                compilationUnit = compilationUnit.AddMembers(namespaceDeclaration);
+            }
         }
         else
         {
-            namespaceDeclaration = namespaceDeclaration!.AddMembers(classDeclaration);
-            compilationUnit = compilationUnit.AddMembers(namespaceDeclaration);
+            compilationUnit = compilationUnit.AddMembers(classDeclaration);
         }
 
         var code = compilationUnit.NormalizeWhitespace().ToString();
