@@ -10,13 +10,14 @@ public class NodesService : INodesService
 {
     private readonly ILogger<NodesService> _logger;
 
-    private record ScriptInfo(string NamespaceName, string ClassName, bool IsPartial, bool hasNamespace, bool IsFileScopedNamespace);
+    public record ScriptInfo(string NamespaceName, string ClassName, bool IsPartial, bool hasNamespace,
+        bool IsFileScopedNamespace);
 
-    private record NodeProperty(string Type, string Name);
+    public record NodeProperty(string Type, string Name);
 
-    private record NodeInitialization(string Name, string Type, string Path);
+    public record NodeInitialization(string Name, string Type, string Path);
 
-    private record NodesInfo(List<string> NodeUsings, List<NodeProperty> NodeProperties,
+    public record NodesInfo(List<string> NodeUsings, List<NodeProperty> NodeProperties,
         List<NodeInitialization> NodeInitializations);
 
     public NodesService(ILogger<NodesService> logger)
@@ -137,7 +138,7 @@ public class NodesService : INodesService
     private void ChangeToPartialClass(string scriptPath)
     {
         var scriptContent = File.ReadAllText(scriptPath);
-        
+
         // Parse the existing source code into a syntax tree
         var syntaxTree = CSharpSyntaxTree.ParseText(scriptContent);
 
@@ -154,7 +155,8 @@ public class NodesService : INodesService
             if (!classDeclaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword)))
             {
                 // Add the 'partial' modifier to the class declaration
-                var partialModifier = SyntaxFactory.Token(SyntaxKind.PartialKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+                var partialModifier = SyntaxFactory.Token(SyntaxKind.PartialKeyword)
+                    .WithTrailingTrivia(SyntaxFactory.Space);
                 var newClassDeclaration = classDeclaration.AddModifiers(partialModifier);
 
                 // Create a new root node with the updated class declaration
@@ -165,7 +167,7 @@ public class NodesService : INodesService
 
                 // Get the updated source code
                 var updatedScriptContent = newSyntaxTree.ToString();
-                
+
                 File.WriteAllText(scriptPath, updatedScriptContent);
 
                 _logger.LogInformation(
@@ -205,7 +207,7 @@ public class NodesService : INodesService
             hasNamespace = true;
             isFileScopeNamespace = true;
         }
-        
+
         var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().FirstOrDefault();
         className = classDeclaration!.Identifier.ValueText;
         isPartial = classDeclaration.Modifiers.Any(n => n.IsKind(SyntaxKind.PartialKeyword));
@@ -275,8 +277,9 @@ public class NodesService : INodesService
         return new NodesInfo(nodeUsings.Distinct().ToList(), nodeProperties, nodeInitializations);
     }
 
-    private string GeneratePartialClassFileContent(ScriptInfo scriptInfo, NodesInfo nodesInfo)
+    public string GeneratePartialClassFileContent(ScriptInfo scriptInfo, NodesInfo nodesInfo)
     {
+        var code = string.Empty;
         var compilationUnit = SyntaxFactory.CompilationUnit();
 
         FileScopedNamespaceDeclarationSyntax? fileScopedNamespaceDeclaration = null;
@@ -301,7 +304,8 @@ public class NodesService : INodesService
             else
             {
                 namespaceDeclaration =
-                    SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
+                    SyntaxFactory.NamespaceDeclaration(
+                        SyntaxFactory.IdentifierName(scriptInfo.NamespaceName));
             }
         }
 
@@ -364,8 +368,7 @@ public class NodesService : INodesService
             var assignmentExpression = SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
                 identifier,
-                invocationExpression
-            );
+                invocationExpression);
 
             // Create the expression statement
             var expressionStatement = SyntaxFactory.ExpressionStatement(assignmentExpression);
@@ -383,21 +386,28 @@ public class NodesService : INodesService
         {
             if (scriptInfo.IsFileScopedNamespace)
             {
+                var namespaceLine = fileScopedNamespaceDeclaration.NormalizeWhitespace().ToString();
                 fileScopedNamespaceDeclaration = fileScopedNamespaceDeclaration!.AddMembers(classDeclaration);
                 compilationUnit = compilationUnit.AddMembers(fileScopedNamespaceDeclaration);
+                code = compilationUnit
+                    .NormalizeWhitespace()
+                    .ToString()
+                    // HACK: add new line after file scoped namesapce manually
+                    // Remove after fixed: https://github.com/dotnet/roslyn/issues/59719
+                    .Replace(namespaceLine, $"{namespaceLine}{Environment.NewLine}");
             }
             else
             {
                 namespaceDeclaration = namespaceDeclaration!.AddMembers(classDeclaration);
                 compilationUnit = compilationUnit.AddMembers(namespaceDeclaration);
+                code = compilationUnit.NormalizeWhitespace().ToString();
             }
         }
         else
         {
             compilationUnit = compilationUnit.AddMembers(classDeclaration);
+            code = compilationUnit.NormalizeWhitespace().ToString();
         }
-
-        var code = compilationUnit.NormalizeWhitespace().ToString();
 
         return code;
     }

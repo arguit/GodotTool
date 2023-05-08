@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotTool", "GodotTool\GodotTool.csproj", "{8CB9C070-43EA-4F88-A30C-F0746B350C8D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotTool.Tests", "GodotTool.Tests\GodotTool.Tests.csproj", "{D1A9E312-F18B-4C75-BD1B-FFE3D60776A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{8CB9C070-43EA-4F88-A30C-F0746B350C8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8CB9C070-43EA-4F88-A30C-F0746B350C8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8CB9C070-43EA-4F88-A30C-F0746B350C8D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1A9E312-F18B-4C75-BD1B-FFE3D60776A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1A9E312-F18B-4C75-BD1B-FFE3D60776A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1A9E312-F18B-4C75-BD1B-FFE3D60776A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1A9E312-F18B-4C75-BD1B-FFE3D60776A5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
