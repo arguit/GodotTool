@@ -386,7 +386,7 @@ public class NodesService : INodesService
         {
             if (scriptInfo.IsFileScopedNamespace)
             {
-                var namespaceLine = fileScopedNamespaceDeclaration.NormalizeWhitespace().ToString();
+                var namespaceLine = fileScopedNamespaceDeclaration!.NormalizeWhitespace().ToString();
                 fileScopedNamespaceDeclaration = fileScopedNamespaceDeclaration!.AddMembers(classDeclaration);
                 compilationUnit = compilationUnit.AddMembers(fileScopedNamespaceDeclaration);
                 code = compilationUnit
